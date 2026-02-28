@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>lean.cc — Roblox Executor</title>
+  <link rel="icon" href="logo.png" type="image/png"/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --purple: #9b30ff;
+      --purple-bright: #bf5fff;
+      --purple-dark: #5a00c8;
+      --purple-glow: rgba(155, 48, 255, 0.35);
+      --bg: #07050f;
+      --bg2: #0d0919;
+      --surface: #110d1e;
+      --border: rgba(155,48,255,0.2);
+      --text: #e8deff;
+      --muted: #8873b5;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      overflow-x: hidden;
+      cursor: default;
+    }
+
+    /* NOISE OVERLAY */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    /* GLOW BLOBS */
+    .blob {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .blob-1 { width: 500px; height: 500px; background: var(--purple-dark); opacity: 0.25; top: -150px; left: -100px; }
+    .blob-2 { width: 400px; height: 400px; background: #2a007a; opacity: 0.2; bottom: 10%; right: -80px; }
+    .blob-3 { width: 300px; height: 300px; background: var(--purple); opacity: 0.08; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+
+    /* NAV */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 48px;
+      background: rgba(7,5,15,0.75);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    .nav-logo img {
+      width: 38px;
+      height: 38px;
+      object-fit: contain;
+    }
+
+    .nav-logo span {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 26px;
+      letter-spacing: 3px;
+      color: var(--purple-bright);
+      text-shadow: 0 0 20px var(--purple-glow);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--purple-bright); }
+
+    /* HERO */
+    .hero {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 120px 24px 80px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(155,48,255,0.1);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 6px 16px;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--purple-bright);
+      margin-bottom: 32px;
+      animation: fadeUp 0.8s ease both;
+    }
+
+    .hero-badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #7fff7f;
+      box-shadow: 0 0 8px #7fff7f;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .hero-logo {
+      width: 130px;
+      height: 130px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 40px var(--purple-glow));
+      animation: fadeUp 0.8s 0.1s ease both, float 4s ease-in-out infinite;
+      margin-bottom: 28px;
+    }
+
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50% { transform: translateY(-12px); }
+    }
+
+    .hero h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(72px, 12vw, 140px);
+      letter-spacing: 8px;
+      line-height: 0.95;
+      background: linear-gradient(135deg, #fff 30%, var(--purple-bright) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: fadeUp 0.8s 0.2s ease both;
+    }
+
+    .hero-sub {
+      font-size: 15px;
+      color: var(--muted);
+      max-width: 480px;
+      line-height: 1.7;
+      margin: 20px auto 40px;
+      animation: fadeUp 0.8s 0.3s ease both;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+      animation: fadeUp 0.8s 0.4s ease both;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, var(--purple-dark), var(--purple));
+      color: #fff;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-decoration: none;
+      padding: 14px 32px;
+      border-radius: 6px;
+      border: 1px solid var(--purple);
+      box-shadow: 0 0 30px rgba(155,48,255,0.4);
+      transition: all 0.25s;
+      cursor: pointer;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 50px rgba(155,48,255,0.7);
+      background: linear-gradient(135deg, var(--purple), var(--purple-bright));
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: transparent;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-decoration: none;
+      padding: 14px 32px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      transition: all 0.25s;
+    }
+
+    .btn-secondary:hover {
+      color: var(--text);
+      border-color: var(--purple);
+    }
+
+    /* STATUS BAR */
+    .status-bar {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto 100px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px 40px;
+      display: flex;
+      justify-content: space-around;
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+
+    .status-item {
+      text-align: center;
+    }
+
+    .status-value {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 36px;
+      letter-spacing: 2px;
+      color: var(--purple-bright);
+      text-shadow: 0 0 20px var(--purple-glow);
+    }
+
+    .status-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* SECTIONS */
+    section {
+      position: relative;
+      z-index: 1;
+      max-width: 1000px;
+      margin: 0 auto 120px;
+      padding: 0 24px;
+    }
+
+    .section-tag {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: var(--purple-bright);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(40px, 6vw, 72px);
+      letter-spacing: 4px;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #fff, var(--muted));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .section-desc {
+      color: var(--muted);
+      max-width: 560px;
+      line-height: 1.7;
+      margin-bottom: 48px;
+    }
+
+    /* FEATURE CARDS */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      transition: border-color 0.3s, transform 0.3s;
+    }
+
+    .card:hover {
+      border-color: var(--purple);
+      transform: translateY(-4px);
+    }
+
+    .card-icon {
+      font-size: 28px;
+      margin-bottom: 16px;
+    }
+
+    .card h3 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 22px;
+      letter-spacing: 2px;
+      margin-bottom: 10px;
+      color: var(--text);
+    }
+
+    .card p {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    /* DOWNLOAD SECTION */
+    #download {
+      text-align: center;
+    }
+
+    .download-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 48px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .download-box::before {
+      content: '';
+      position: absolute;
+      top: -1px; left: 10%; right: 10%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--purple), transparent);
+    }
+
+    .download-box-glow {
+      position: absolute;
+      top: -60px; left: 50%; transform: translateX(-50%);
+      width: 300px; height: 200px;
+      background: var(--purple);
+      filter: blur(80px);
+      opacity: 0.12;
+      pointer-events: none;
+    }
+
+    .update-badge {
+      display: inline-block;
+      background: rgba(155,48,255,0.1);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 28px;
+    }
+
+    .update-badge strong { color: var(--purple-bright); }
+
+    .tos-check {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 28px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .tos-check input[type="checkbox"] {
+      width: 16px; height: 16px;
+      accent-color: var(--purple);
+      cursor: pointer;
+    }
+
+    .tos-check a { color: var(--purple-bright); }
+
+    .download-btns {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .current-status {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.8;
+      letter-spacing: 0.5px;
+    }
+
+    .working { color: #7fff7f; }
+
+    /* DIVIDER */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      max-width: 900px;
+      margin: 0 auto 100px;
+    }
+
+    /* FOOTER */
+    footer {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 40px 24px 60px;
+      border-top: 1px solid var(--border);
+    }
+
+    footer .footer-logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 32px;
+      letter-spacing: 5px;
+      color: var(--purple-bright);
+      margin-bottom: 12px;
+    }
+
+    footer .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 28px;
+      list-style: none;
+      margin-bottom: 20px;
+    }
+
+    footer .footer-links a {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--muted);
+      text-decoration: none;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+
+    footer .footer-links a:hover { color: var(--purple-bright); }
+
+    footer p {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      color: #4a3d6b;
+      letter-spacing: 1px;
+    }
+
+    /* ANIMATIONS */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* SUNC SECTION */
+    .sunc-bar-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+    }
+
+    .sunc-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 16px;
+    }
+
+    .sunc-percent {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 56px;
+      letter-spacing: 2px;
+      color: var(--purple-bright);
+      text-shadow: 0 0 30px var(--purple-glow);
+      line-height: 1;
+    }
+
+    .sunc-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .sunc-bar {
+      width: 100%;
+      height: 8px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 100px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .sunc-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--purple-dark), var(--purple-bright));
+      border-radius: 100px;
+      box-shadow: 0 0 20px var(--purple-glow);
+      transition: width 2s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    .sunc-note {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 640px) {
+      nav { padding: 16px 20px; }
+      .nav-links { display: none; }
+      .status-bar { padding: 20px; }
+      .download-box { padding: 28px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+
+  <!-- NAV -->
+  <nav>
+    <a href="#" class="nav-logo">
+      <img src="logo.png" alt="lean.cc logo" onerror="this.style.display='none'"/>
+      <span>LEAN.CC</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#download">Download</a></li>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#sunc">sUNC</a></li>
+      <li><a href="#discord">Discord</a></li>
+    </ul>
+  </nav>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-badge">🟢 &nbsp;JUST LAUNCHED — V1 LIVE NOW</div>
+    <img src="logo.png" class="hero-logo" alt="lean.cc" onerror="this.style.display='none'"/>
+    <h1>LEAN.CC</h1>
+    <p class="hero-sub">
+      The smoothest Roblox executor around. No keys, no hassle — just pure, unfiltered execution power. Sip back and let it run.
+    </p>
+    <div class="hero-actions">
+      <a href="#download" class="btn-primary">⬇ Download Now</a>
+      <a href="#discord" class="btn-secondary">💬 Discord</a>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="status-bar" style="position:relative;z-index:1;">
+    <div class="status-item">
+      <div class="status-value">100%</div>
+      <div class="status-label">sUNC Score</div>
+    </div>
+    <div class="status-item">
+      <div class="status-value">KEYLESS</div>
+      <div class="status-label">No Key System</div>
+    </div>
+    <div class="status-item">
+      <div class="status-value">V1</div>
+      <div class="status-label">Velocity API</div>
+    </div>
+    <div class="status-item">
+      <div class="status-value" id="last-update">Feb 2026</div>
+      <div class="status-label">Last Updated</div>
+    </div>
+  </div>
+
+  <!-- FEATURES -->
+  <section id="features">
+    <div class="section-tag">// Features</div>
+    <h2 class="section-title">BUILT DIFFERENT</h2>
+    <p class="section-desc">lean.cc isn't just another executor. It's crafted for those who want fast injection, clean UI, and zero interruptions.</p>
+    <div class="cards">
+      <div class="card">
+        <div class="card-icon">⚡</div>
+        <h3>Instant Inject</h3>
+        <p>Sub-second injection speeds. No waiting, no timeouts — just click and go.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔑</div>
+        <h3>Keyless</h3>
+        <p>Zero key systems. Open the executor, inject, execute. That's it.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📜</div>
+        <h3>Script Hub</h3>
+        <p>Built-in script hub with hundreds of popular scripts, searchable and ready to run.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📡</div>
+        <h3>Live Status</h3>
+        <p>Real-time banwave detection and Roblox update alerts baked right into the UI.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🎨</div>
+        <h3>Clean UI</h3>
+        <p>Sleek, intuitive interface with dark theming. Looks as good as it performs.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🌀</div>
+        <h3>Velocity API</h3>
+        <p>Powered by the Velocity API for rock-solid stability and maximum script compatibility.</p>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider"/>
+
+  <!-- sUNC -->
+  <section id="sunc">
+    <div class="section-tag">// sUNC</div>
+    <h2 class="section-title">TOP-TIER COMPATIBILITY</h2>
+    <p class="section-desc">lean.cc reaches 100% sUNC — full UNC compatibility meaning virtually every script will just work.</p>
+    <div class="sunc-bar-wrap">
+      <div class="sunc-header">
+        <div>
+          <div class="sunc-percent">100<span style="font-size:28px">%</span></div>
+          <div class="sunc-label">sUNC Score</div>
+        </div>
+        <a href="#" class="btn-secondary" style="font-size:10px;padding:10px 20px;">View Full Result ↗</a>
+      </div>
+      <div class="sunc-bar"><div class="sunc-bar-fill" id="suncFill"></div></div>
+      <p class="sunc-note">Powered by the Velocity API. Tested on the latest Roblox version.</p>
+    </div>
+  </section>
+
+  <!-- DOWNLOAD -->
+  <section id="download" style="text-align:center;">
+    <div class="section-tag">// Download</div>
+    <h2 class="section-title">GET LEAN</h2>
+    <p class="section-desc" style="margin: 0 auto 40px;">Always up to date. Always free. Always keyless.</p>
+
+    <div class="download-box">
+      <div class="download-box-glow"></div>
+      <div class="update-badge">Last Update: <strong>Feb 28, 2026</strong> — Updated to latest Roblox version</div>
+
+      <div class="tos-check">
+        <input type="checkbox" id="tos"/>
+        <label for="tos">I have read and agree to the <a href="#tos-section">Terms of Service</a></label>
+      </div>
+
+      <div class="download-btns">
+        <a href="#" class="btn-primary" onclick="checkTos(event)">⬇ Download V1</a>
+      </div>
+
+      <div class="current-status">
+        Current Status: &nbsp;<span class="working">V1 WORKING</span> — Powered by Velocity API<br/>
+        <strong style="color:var(--purple-bright)">KEYLESS</strong> — Just released!
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider"/>
+
+  <!-- DISCORD -->
+  <section id="discord" style="text-align:center;">
+    <div class="section-tag">// Community</div>
+    <h2 class="section-title">JOIN THE DRIP</h2>
+    <p class="section-desc" style="margin: 0 auto 40px;">Connect with other lean.cc users, get support, and stay updated on every release.</p>
+    <a href="https://discord.gg/ySEkDhvaNU" class="btn-primary" target="_blank">💬 Join Discord</a>
+  </section>
+
+  <hr class="divider"/>
+
+  <!-- TOS -->
+  <section id="tos-section">
+    <div class="section-tag">// Legal</div>
+    <h2 class="section-title">TERMS OF SERVICE</h2>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;font-size:13px;color:var(--muted);line-height:1.9;">
+      <p><strong style="color:var(--text)">1. Introduction</strong> — By downloading or using lean.cc, you agree to these Terms of Service in full.</p>
+      <p><strong style="color:var(--text)">2. Educational Use Only</strong> — lean.cc is intended strictly for educational and testing purposes in controlled environments.</p>
+      <p><strong style="color:var(--text)">3. Responsible Use</strong> — You agree not to use lean.cc to negatively impact other users' experiences in public Roblox servers.</p>
+      <p><strong style="color:var(--text)">4. User Responsibility</strong> — Any misuse, including account bans or legal consequences, is solely the responsibility of the user.</p>
+      <p><strong style="color:var(--text)">5. No Warranty</strong> — lean.cc is provided "as is" with no guarantees of performance, security, or compatibility.</p>
+      <p><strong style="color:var(--text)">6. No Reverse Engineering</strong> — You may not decompile, crack, or redistribute lean.cc's source or internals.</p>
+      <p><strong style="color:var(--text)">7. Updates</strong> — We reserve the right to update or discontinue lean.cc at any time without notice.</p>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-logo">LEAN.CC</div>
+    <ul class="footer-links">
+      <li><a href="#tos-section">Terms</a></li>
+      <li><a href="#download">Download</a></li>
+      <li><a href="#discord">Discord</a></li>
+      <li><a href="#sunc">sUNC</a></li>
+    </ul>
+    <p>© 2026 LEAN.CC — ALL RIGHTS RESERVED</p>
+  </footer>
+
+  <script>
+    // Animate sUNC bar on scroll
+    const fill = document.getElementById('suncFill');
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) {
+        fill.style.width = '100%';
+        observer.disconnect();
+      }
+    }, { threshold: 0.3 });
+    observer.observe(fill);
+
+    // TOS check for download
+    function checkTos(e) {
+      const tos = document.getElementById('tos');
+      if (!tos.checked) {
+        e.preventDefault();
+        tos.parentElement.style.color = '#ff6b6b';
+        setTimeout(() => tos.parentElement.style.color = '', 1500);
+        tos.style.outlineColor = '#ff6b6b';
+      }
+    }
+
+    // Scroll reveal
+    const cards = document.querySelectorAll('.card');
+    const revealObs = new IntersectionObserver(entries => {
+      entries.forEach((e, i) => {
+        if (e.isIntersecting) {
+          e.target.style.animation = `fadeUp 0.6s ${i * 0.08}s ease both`;
+          revealObs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.1 });
+    cards.forEach(c => revealObs.observe(c));
+  </script>
+</body>
+</html>
